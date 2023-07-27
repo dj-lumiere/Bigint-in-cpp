@@ -12,7 +12,6 @@ typedef std::complex<float64> complex64;
 typedef std::complex<float32> complex32;
 const int32_t MOD = 998244353;
 const int32_t ROOT = 3;
-using namespace std;
 class BigInt
 {
 private:
@@ -54,7 +53,7 @@ public:
     friend BigInt abs(BigInt target);
 
 protected:
-    void remove_trailing_zero(std::vector<int32_t> &result);
+    void remove_trailing_zero(std::vector<int32_t> &target);
     bool is_smaller_than_other(const BigInt &other);
     bool is_smaller_than_other_same_digit(const BigInt &other);
     BigInt add_mantissa(const BigInt &other);
@@ -69,11 +68,11 @@ protected:
     BigInt multiply_mantissa(const BigInt &other);
     std::vector<BigInt> divmod_mantissa(const BigInt &other);
 };
-void BigInt::remove_trailing_zero(std::vector<int32_t> &result)
+void BigInt::remove_trailing_zero(std::vector<int32_t> &target)
 {
-    while (result.size() > 1 and result.back() == 0)
+    while (target.size() > 1 and target.back() == 0)
     {
-        result.pop_back();
+        target.pop_back();
     }
 }
 bool BigInt::is_smaller_than_other(const BigInt &other)
@@ -338,6 +337,7 @@ BigInt::BigInt(const char *target)
         if (p == target and *p == '-')
         {
             sign = -1;
+            ++p;
             continue;
         }
         if (not('0' <= *p and *p <= '9'))
@@ -606,21 +606,20 @@ BigInt BigInt::operator/(const BigInt &other)
     }
     if ((this->sign == MINUS) and other.sign == PLUS)
     {
-        return (absolute_remainder == 0 ? -absolute_quotient - 1 : -absolute_quotient);
+        return (absolute_remainder.sign == ZERO ? -absolute_quotient : -absolute_quotient - 1);
     }
     if ((this->sign >= ZERO) and other.sign == MINUS)
     {
-        return (absolute_remainder == 0 ? -absolute_quotient - 1 : -absolute_quotient);
+        return (absolute_remainder.sign == ZERO ? -absolute_quotient : -absolute_quotient - 1);
     }
     if ((this->sign == MINUS) and other.sign == MINUS)
     {
-        return -absolute_quotient;
+        return absolute_quotient;
     }
 }
 BigInt BigInt::operator%(const BigInt &other)
 {
     std::vector<BigInt> absolute_division_result = divmod_mantissa(other);
-    BigInt absolute_quotient = absolute_division_result[0];
     BigInt absolute_remainder = absolute_division_result[1];
     if ((this->sign >= ZERO) and other.sign == PLUS)
     {
@@ -628,11 +627,11 @@ BigInt BigInt::operator%(const BigInt &other)
     }
     if ((this->sign == MINUS) and other.sign == PLUS)
     {
-        return (absolute_remainder == 0 ? 0 : other - absolute_remainder);
+        return (absolute_remainder.sign == ZERO ? absolute_remainder : -(absolute_remainder - other));
     }
     if ((this->sign >= ZERO) and other.sign == MINUS)
     {
-        return (absolute_remainder == 0 ? 0 : absolute_remainder - other);
+        return (absolute_remainder.sign == ZERO ? absolute_remainder : absolute_remainder + other);
     }
     if ((this->sign == MINUS) and other.sign == MINUS)
     {
@@ -655,23 +654,21 @@ std::vector<BigInt> BigInt::divmod_mantissa(const BigInt &other)
     {
         throw std::invalid_argument("DivisionError");
     }
+    BigInt absolute_dividend = abs(mantissa);
     BigInt quotient(0);
     BigInt remainder(0);
     for (std::reverse_iterator rit = this->mantissa.rbegin(); rit != this->mantissa.rend(); ++rit)
     {
         remainder = remainder * 10 + *rit;
         int32_t digit = 0;
-        while (remainder >= other)
+        while (remainder >= absolute_dividend and digit < 10)
         {
-            remainder -= other;
+            remainder -= absolute_dividend;
             digit += 1;
         }
         quotient.mantissa.push_back(digit);
     }
     std::reverse(quotient.mantissa.begin(), quotient.mantissa.end());
-    while (quotient.mantissa.size() > 1 and quotient.mantissa.back() == 0)
-    {
-        quotient.mantissa.pop_back();
-    }
+    remove_trailing_zero(quotient.mantissa);
     return {quotient, remainder};
 }

@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+// TODO: operator /, operator %, divmod, operator /=, operator %=, gcd, lcm
+
 class BigInt
 {
 private:
@@ -24,25 +26,25 @@ public:
     bool operator>(BigInt &other);
     bool operator<=(BigInt &other);
     bool operator<(BigInt &other);
-    BigInt abs() const;
     BigInt operator+(const BigInt &other);
     BigInt operator-() const;
     BigInt operator-(const BigInt &other);
     BigInt operator*(const BigInt &other);
     // BigInt operator/(BigInt &other);
     // BigInt operator%(BigInt &other);
-    // std::tuple<BigInt> divmod(BigInt &other);
     BigInt &operator+=(BigInt &other);
     BigInt &operator-=(BigInt &other);
     BigInt &operator*=(BigInt &other);
     // BigInt &operator/=(BigInt &other);
     // BigInt &operator%=(BigInt &other);
-    // BigInt gcd(BigInt other);
-    // BigInt lcm(BigInt other);
     int32_t retrieve_sign() const;
     int32_t retrieve_digit() const;
     std::vector<int32_t> retrieve_mantissa() const;
     friend std::ostream &operator<<(std::ostream &os, const BigInt &target);
+    friend BigInt abs(BigInt &target);
+    // friend std::tuple<BigInt> divmod(BigInt target1, BigInt &target2);
+    // friend BigInt gcd(BigInt other);
+    // friend BigInt lcm(BigInt other);
 
 protected:
     bool is_smaller_than_other(const BigInt &other);
@@ -168,10 +170,6 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
     }
     return BigInt(1, result);
 }
-
-// BigInt division(BigInt &other, bool finding_mod) const
-// {
-// }
 
 BigInt::BigInt(const std::string &target)
 {
@@ -318,13 +316,13 @@ bool BigInt::operator<(BigInt &other)
     return true;
 }
 
-BigInt BigInt::abs() const
+BigInt abs(BigInt &target)
 {
-    if (this->sign == MINUS)
+    if (target.retrieve_sign() == -1)
     {
-        return -*this;
+        return -target;
     }
-    return *this;
+    return target;
 }
 
 BigInt BigInt::operator+(const BigInt &other)
@@ -453,14 +451,6 @@ std::vector<int32_t> BigInt::retrieve_mantissa() const
 {
     return this->mantissa;
 }
-
-// BigInt gcd(BigInt other)
-// {
-// }
-
-// BigInt lcm(BigInt other)
-// {
-// }
 
 std::ostream &operator<<(std::ostream &os, const BigInt &target)
 {

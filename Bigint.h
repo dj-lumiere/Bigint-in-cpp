@@ -12,6 +12,7 @@ typedef std::complex<float64> complex64;
 typedef std::complex<float32> complex32;
 const int32_t MOD = 998244353;
 const int32_t ROOT = 3;
+using namespace std;
 class BigInt
 {
 private:
@@ -53,6 +54,7 @@ public:
     friend BigInt abs(BigInt target);
 
 protected:
+    void remove_trailing_zero(std::vector<int32_t> &result);
     bool is_smaller_than_other(const BigInt &other);
     bool is_smaller_than_other_same_digit(const BigInt &other);
     BigInt add_mantissa(const BigInt &other);
@@ -67,6 +69,13 @@ protected:
     BigInt multiply_mantissa(const BigInt &other);
     std::vector<BigInt> divmod_mantissa(const BigInt &other);
 };
+void BigInt::remove_trailing_zero(std::vector<int32_t> &result)
+{
+    while (result.size() > 1 and result.back() == 0)
+    {
+        result.pop_back();
+    }
+}
 bool BigInt::is_smaller_than_other(const BigInt &other)
 {
     if (this->digit > other.digit)
@@ -142,10 +151,7 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
         }
         result.push_back(diff);
     }
-    while (result.size() > 1 and result.back() == 0)
-    {
-        result.pop_back();
-    }
+    remove_trailing_zero(result);
     if (result.size() == 1 and result.back() == 0)
     {
         sign = ZERO;
@@ -292,10 +298,7 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
             result[i] %= 10;
         }
     }
-    while (result.size() > 1 and result.back() == 0)
-    {
-        result.pop_back();
-    }
+    remove_trailing_zero(result);
     if (result.size() == 1 and result.back() == 0)
     {
         sign = ZERO;
@@ -318,10 +321,7 @@ BigInt::BigInt(const std::string &target)
         }
         this->mantissa.push_back(static_cast<int32_t>(*rit - '0'));
     }
-    while (this->mantissa.size() > 1 and this->mantissa.back() == 0)
-    {
-        this->mantissa.pop_back();
-    }
+    remove_trailing_zero(this->mantissa);
     if (this->mantissa.empty())
     {
         this->mantissa.push_back(0);
@@ -348,10 +348,7 @@ BigInt::BigInt(const char *target)
         ++p;
     }
     reverse(this->mantissa.begin(), this->mantissa.end());
-    while (this->mantissa.size() > 1 and this->mantissa.back() == 0)
-    {
-        this->mantissa.pop_back();
-    }
+    remove_trailing_zero(this->mantissa);
     if (this->mantissa.empty())
     {
         this->mantissa.push_back(0);
@@ -418,6 +415,7 @@ BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
     }
     this->sign = sign;
     this->mantissa = mantissa;
+    remove_trailing_zero(this->mantissa);
     this->digit = mantissa.size();
 }
 bool BigInt::operator==(const BigInt &other)

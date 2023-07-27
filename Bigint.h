@@ -3,8 +3,6 @@
 #include <vector>
 #include <string>
 
-// TODO: operator /, operator %, divmod, operator /=, operator %=, gcd, lcm
-
 class BigInt
 {
 private:
@@ -30,21 +28,15 @@ public:
     BigInt operator-() const;
     BigInt operator-(const BigInt &other);
     BigInt operator*(const BigInt &other);
-    // BigInt operator/(BigInt &other);
-    // BigInt operator%(BigInt &other);
     BigInt &operator+=(BigInt &other);
     BigInt &operator-=(BigInt &other);
     BigInt &operator*=(BigInt &other);
-    // BigInt &operator/=(BigInt &other);
-    // BigInt &operator%=(BigInt &other);
     int32_t retrieve_sign() const;
     int32_t retrieve_digit() const;
     std::vector<int32_t> retrieve_mantissa() const;
+    friend std::istream &operator>>(std::istream &is, BigInt &target);
     friend std::ostream &operator<<(std::ostream &os, const BigInt &target);
-    friend BigInt abs(BigInt &target);
-    // friend std::tuple<BigInt> divmod(BigInt target1, BigInt &target2);
-    // friend BigInt gcd(BigInt other);
-    // friend BigInt lcm(BigInt other);
+    friend BigInt abs(BigInt target);
 
 protected:
     bool is_smaller_than_other(const BigInt &other);
@@ -143,7 +135,7 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
     {
         result.pop_back();
     }
-    return BigInt((negate ? -this->sign : this->sign), result);
+    return BigInt((negate ? -1 : 1), result);
 }
 
 BigInt BigInt::multiply_mantissa(const BigInt &other)
@@ -173,6 +165,7 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
 
 BigInt::BigInt(const std::string &target)
 {
+    this->mantissa.clear();
     bool trailing_zero_finish = false;
     for (std::reverse_iterator it = target.rbegin(); it != target.rend(); ++it)
     {
@@ -205,6 +198,7 @@ BigInt::BigInt(const std::string &target)
 
 BigInt::BigInt(int32_t target)
 {
+    this->mantissa.clear();
     if (target < 0)
     {
         this->sign = MINUS;
@@ -218,7 +212,6 @@ BigInt::BigInt(int32_t target)
     {
         this->sign = PLUS;
     }
-    this->mantissa.clear();
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
@@ -229,6 +222,7 @@ BigInt::BigInt(int32_t target)
 
 BigInt::BigInt(int64_t target)
 {
+    this->mantissa.clear();
     if (target < 0)
     {
         this->sign = MINUS;
@@ -242,7 +236,6 @@ BigInt::BigInt(int64_t target)
     {
         this->sign = PLUS;
     }
-    this->mantissa.clear();
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
@@ -253,6 +246,7 @@ BigInt::BigInt(int64_t target)
 
 BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
 {
+    this->mantissa.clear();
     if (sign > 0)
     {
         sign = 1;
@@ -309,16 +303,17 @@ bool BigInt::operator<(BigInt &other)
     {
         return true;
     }
-    else if (this->sign == MINUS and other.sign == MINUS and not is_smaller_than_other(other))
+    else if (this->sign == MINUS and other.sign == MINUS and is_smaller_than_other(other))
     {
-        return true;
+        return false;
     }
     return true;
 }
 
-BigInt abs(BigInt &target)
+BigInt abs(BigInt target)
 {
-    if (target.retrieve_sign() == -1)
+    int32_t target_sign = target.retrieve_sign();
+    if (target_sign == -1)
     {
         return -target;
     }
@@ -355,7 +350,7 @@ BigInt BigInt::operator+(const BigInt &other)
 
 BigInt BigInt::operator-() const
 {
-    BigInt result = BigInt(-1, this->mantissa);
+    BigInt result = BigInt(-1 * this->sign, this->mantissa);
     return result;
 }
 
@@ -403,14 +398,6 @@ BigInt BigInt::operator*(const BigInt &other)
     }
 }
 
-// BigInt BigInt::operator/(BigInt &other)
-// {
-// }
-
-// BigInt BigInt::operator%(BigInt &other)
-// {
-// }
-
 BigInt &BigInt::operator+=(BigInt &other)
 {
     *this = *this + other;
@@ -429,14 +416,6 @@ BigInt &BigInt::operator*=(BigInt &other)
     return *this;
 }
 
-// BigInt &BigInt::operator/=(BigInt &other)
-// {
-// }
-
-// BigInt &BigInt::operator%=(BigInt &other)
-// {
-// }
-
 int32_t BigInt::retrieve_sign() const
 {
     return this->sign;
@@ -450,6 +429,16 @@ int32_t BigInt::retrieve_digit() const
 std::vector<int32_t> BigInt::retrieve_mantissa() const
 {
     return this->mantissa;
+}
+
+std::istream &operator>>(std::istream &is, BigInt &target)
+{
+    std::string mantissa;
+    if (is >> mantissa)
+    {
+        target = BigInt(mantissa);
+    }
+    return is;
 }
 
 std::ostream &operator<<(std::ostream &os, const BigInt &target)

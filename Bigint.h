@@ -2,6 +2,9 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <algorithm>
+
+// TODO: operator /, operator %, divmod, operator /=, operator %=, gcd, lcm
 
 using namespace std;
 class BigInt
@@ -19,19 +22,21 @@ public:
     BigInt(int32_t sign, const std::vector<int32_t> &mantissa);
     BigInt(int32_t target);
     BigInt(int64_t target);
-    bool operator==(BigInt &other);
-    bool operator!=(BigInt &other);
-    bool operator>=(BigInt &other);
-    bool operator>(BigInt &other);
-    bool operator<=(BigInt &other);
-    bool operator<(BigInt &other);
-    BigInt operator+(const BigInt &other);
+    bool operator==(const BigInt &other);
+    bool operator!=(const BigInt &other);
+    bool operator>=(const BigInt &other);
+    bool operator>(const BigInt &other);
+    bool operator<=(const BigInt &other);
+    bool operator<(const BigInt &other);
     BigInt operator-() const;
+    BigInt operator+(const BigInt &other);
     BigInt operator-(const BigInt &other);
     BigInt operator*(const BigInt &other);
-    BigInt &operator+=(BigInt &other);
-    BigInt &operator-=(BigInt &other);
-    BigInt &operator*=(BigInt &other);
+    BigInt operator/(const BigInt &other);
+    BigInt operator%(const BigInt &other);
+    BigInt &operator+=(const BigInt &other);
+    BigInt &operator-=(const BigInt &other);
+    BigInt &operator*=(const BigInt &other);
     int32_t retrieve_sign() const;
     int32_t retrieve_digit() const;
     std::vector<int32_t> retrieve_mantissa() const;
@@ -45,8 +50,8 @@ protected:
     BigInt add_mantissa(const BigInt &other);
     BigInt subtract_mantissa(const BigInt &other);
     BigInt multiply_mantissa(const BigInt &other);
+    std::vector<BigInt> divmod_mantissa(const BigInt &other);
 };
-
 bool BigInt::is_smaller_than_other(const BigInt &other)
 {
     if (this->digit > other.digit)
@@ -59,7 +64,6 @@ bool BigInt::is_smaller_than_other(const BigInt &other)
     }
     return is_smaller_than_other_same_digit(other);
 }
-
 bool BigInt::is_smaller_than_other_same_digit(const BigInt &other)
 {
     auto it1 = this->mantissa.rbegin();
@@ -77,7 +81,6 @@ bool BigInt::is_smaller_than_other_same_digit(const BigInt &other)
     }
     return false;
 }
-
 BigInt BigInt::add_mantissa(const BigInt &other)
 {
     std::vector<int32_t> result;
@@ -96,7 +99,6 @@ BigInt BigInt::add_mantissa(const BigInt &other)
         result.push_back(carry);
     return BigInt(this->sign, result);
 }
-
 BigInt BigInt::subtract_mantissa(const BigInt &other)
 {
     bool negate = false;
@@ -151,7 +153,6 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
     }
     return BigInt(sign, result);
 }
-
 BigInt BigInt::multiply_mantissa(const BigInt &other)
 {
     std::vector<int32_t> result(this->mantissa.size() + other.mantissa.size() + 1, 0);
@@ -185,7 +186,6 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
     }
     return BigInt(sign, result);
 }
-
 BigInt::BigInt(const std::string &target)
 {
     this->mantissa.clear();
@@ -213,7 +213,6 @@ BigInt::BigInt(const std::string &target)
     }
     this->digit = this->mantissa.size();
 }
-
 BigInt::BigInt(int32_t target)
 {
     this->mantissa.clear();
@@ -237,7 +236,6 @@ BigInt::BigInt(int32_t target)
     }
     this->digit = mantissa.size();
 }
-
 BigInt::BigInt(int64_t target)
 {
     this->mantissa.clear();
@@ -261,7 +259,6 @@ BigInt::BigInt(int64_t target)
     }
     this->digit = mantissa.size();
 }
-
 BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
 {
     this->mantissa.clear();
@@ -277,33 +274,27 @@ BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
     this->mantissa = mantissa;
     this->digit = mantissa.size();
 }
-
-bool BigInt::operator==(BigInt &other)
+bool BigInt::operator==(const BigInt &other)
 {
     return this->mantissa == other.mantissa;
 }
-
-bool BigInt::operator!=(BigInt &other)
+bool BigInt::operator!=(const BigInt &other)
 {
     return not(*this == other);
 }
-
-bool BigInt::operator>=(BigInt &other)
+bool BigInt::operator>=(const BigInt &other)
 {
     return not(*this < other);
 }
-
-bool BigInt::operator>(BigInt &other)
+bool BigInt::operator>(const BigInt &other)
 {
     return not(*this <= other);
 }
-
-bool BigInt::operator<=(BigInt &other)
+bool BigInt::operator<=(const BigInt &other)
 {
     return (*this < other) or (*this == other);
 }
-
-bool BigInt::operator<(BigInt &other)
+bool BigInt::operator<(const BigInt &other)
 {
     if (*this == other)
     {
@@ -327,7 +318,6 @@ bool BigInt::operator<(BigInt &other)
     }
     return true;
 }
-
 BigInt abs(BigInt target)
 {
     int32_t target_sign = target.retrieve_sign();
@@ -337,7 +327,6 @@ BigInt abs(BigInt target)
     }
     return target;
 }
-
 BigInt BigInt::operator+(const BigInt &other)
 {
     if (this->sign == ZERO)
@@ -365,13 +354,11 @@ BigInt BigInt::operator+(const BigInt &other)
         return -subtract_mantissa(-other);
     }
 }
-
 BigInt BigInt::operator-() const
 {
     BigInt result = BigInt(-1 * this->sign, this->mantissa);
     return result;
 }
-
 BigInt BigInt::operator-(const BigInt &other)
 {
     if (this->sign == ZERO)
@@ -399,7 +386,6 @@ BigInt BigInt::operator-(const BigInt &other)
         return -add_mantissa(-other);
     }
 }
-
 BigInt BigInt::operator*(const BigInt &other)
 {
     if (this->sign == ZERO or other.sign == ZERO)
@@ -415,40 +401,33 @@ BigInt BigInt::operator*(const BigInt &other)
         return -multiply_mantissa(other);
     }
 }
-
-BigInt &BigInt::operator+=(BigInt &other)
+BigInt &BigInt::operator+=(const BigInt &other)
 {
     *this = *this + other;
     return *this;
 }
-
-BigInt &BigInt::operator-=(BigInt &other)
+BigInt &BigInt::operator-=(const BigInt &other)
 {
     *this = *this - other;
     return *this;
 }
-
-BigInt &BigInt::operator*=(BigInt &other)
+BigInt &BigInt::operator*=(const BigInt &other)
 {
     *this = *this * other;
     return *this;
 }
-
 int32_t BigInt::retrieve_sign() const
 {
     return this->sign;
 }
-
 int32_t BigInt::retrieve_digit() const
 {
     return this->digit;
 }
-
 std::vector<int32_t> BigInt::retrieve_mantissa() const
 {
     return this->mantissa;
 }
-
 std::istream &operator>>(std::istream &is, BigInt &target)
 {
     std::string mantissa;
@@ -458,7 +437,6 @@ std::istream &operator>>(std::istream &is, BigInt &target)
     }
     return is;
 }
-
 std::ostream &operator<<(std::ostream &os, const BigInt &target)
 {
     int64_t sign = target.retrieve_sign();
@@ -472,4 +450,38 @@ std::ostream &operator<<(std::ostream &os, const BigInt &target)
         os << *it;
     }
     return os;
+}
+BigInt BigInt::operator/(const BigInt &other)
+{
+    return divmod_mantissa(other)[0];
+}
+BigInt BigInt::operator%(const BigInt &other)
+{
+    return divmod_mantissa(other)[1];
+}
+std::vector<BigInt> BigInt::divmod_mantissa(const BigInt &other)
+{
+    if (other.sign == ZERO)
+    {
+        throw std::invalid_argument("DivisionError");
+    }
+    BigInt quotient(0);
+    BigInt remainder(0);
+    for (std::reverse_iterator rit = this->mantissa.rbegin(); rit != this->mantissa.rend(); ++rit)
+    {
+        remainder = remainder * 10 + *rit;
+        int32_t digit = 0;
+        while (remainder >= other)
+        {
+            remainder -= other;
+            digit += 1;
+        }
+        quotient.mantissa.push_back(digit);
+    }
+    std::reverse(quotient.mantissa.begin(), quotient.mantissa.end());
+    while (quotient.mantissa.size() > 1 and quotient.mantissa.back() == 0)
+    {
+        quotient.mantissa.pop_back();
+    }
+    return {quotient, remainder};
 }

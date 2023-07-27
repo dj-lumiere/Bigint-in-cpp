@@ -3,7 +3,15 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-
+#include <complex>
+typedef long double float80;
+typedef double float64;
+typedef float float32;
+typedef std::complex<float80> complex80;
+typedef std::complex<float64> complex64;
+typedef std::complex<float32> complex32;
+const int32_t MOD = 998244353;
+const int32_t ROOT = 3;
 using namespace std;
 class BigInt
 {
@@ -17,6 +25,7 @@ private:
 
 public:
     BigInt(const std::string &target);
+    BigInt(const char *target);
     BigInt(int32_t sign, const std::vector<int32_t> &mantissa);
     BigInt(int32_t target);
     BigInt(int64_t target);
@@ -49,6 +58,13 @@ protected:
     bool is_smaller_than_other_same_digit(const BigInt &other);
     BigInt add_mantissa(const BigInt &other);
     BigInt subtract_mantissa(const BigInt &other);
+    int32_t multiply_mod(int32_t a, int32_t b);
+    int32_t power_with_mod(int32_t base, int32_t index);
+    int32_t modular_inverse(int32_t base);
+    int32_t degree_conversion(int32_t a);
+    void bit_reversal_permutation(std::vector<int32_t> &a);
+    void coefficient_normalization(std::vector<int32_t> &a);
+    void ntt(std::vector<int32_t> &a, bool invert);
     BigInt multiply_mantissa(const BigInt &other);
     std::vector<BigInt> divmod_mantissa(const BigInt &other);
 };
@@ -141,23 +157,140 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
     }
     return BigInt(sign, result);
 }
-BigInt BigInt::multiply_mantissa(const BigInt &other)
+int32_t BigInt::multiply_mod(int32_t a, int32_t b)
 {
-    std::vector<int32_t> result(this->mantissa.size() + other.mantissa.size() + 1, 0);
-    int32_t sign = 0;
-    for (int32_t i1 = 0; i1 < this->mantissa.size(); i1++)
+    return static_cast<int32_t>((static_cast<int64_t>(a) * b) % MOD);
+}
+int32_t BigInt::power_with_mod(int32_t base, int32_t index)
+{
+    int32_t answer = 1;
+    while (index)
     {
-        for (int32_t i2 = 0; i2 < other.mantissa.size(); i2++)
+        if (index & 1)
         {
-            result[i1 + i2] += this->mantissa[i1] * other.mantissa[i2];
+            answer = multiply_mod(answer, base);
+        }
+        base = multiply_mod(base, base);
+        index >>= 1;
+    }
+    return answer;
+}
+int32_t BigInt::modular_inverse(int32_t base)
+{
+    return power_with_mod(base, MOD - 2);
+}
+int32_t BigInt::degree_conversion(int32_t a)
+{
+    return static_cast<int32_t>(ceil(log2(a)));
+}
+void BigInt::bit_reversal_permutation(std::vector<int32_t> &a)
+{
+    int32_t n = a.size();
+    for (int32_t i = 1, j = 0; i < n; ++i)
+    {
+        int32_t bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+        {
+            j ^= bit;
+        }
+        j ^= bit;
+        if (i < j)
+        {
+            swap(a[i], a[j]);
         }
     }
-    for (int32_t i1 = 0; i1 < result.size(); i1++)
+}
+void BigInt::coefficient_normalization(std::vector<int32_t> &a)
+{
+    int32_t n = a.size();
+    int32_t n_inv = modular_inverse(n);
+    for (int32_t i = 0; i < n; ++i)
     {
-        if (result[i1] >= 10)
+        a[i] = multiply_mod(a[i], n_inv);
+    }
+}
+void BigInt::ntt(std::vector<int32_t> &a, bool invert)
+{
+    int32_t n = a.size();
+    bit_reversal_permutation(a);
+    std::vector<int32_t> root_of_unity(n / 2, 0);
+    int32_t angle;
+    if (invert)
+    {
+        angle = MOD - 1 - (MOD - 1) / n;
+    }
+    else
+    {
+        angle = (MOD - 1) / n;
+    }
+    root_of_unity[0] = 1;
+    int32_t angleth_power = power_with_mod(ROOT, angle);
+    for (int32_t i = 1; i < n / 2; ++i)
+    {
+        root_of_unity[i] = multiply_mod(root_of_unity[i - 1], angleth_power);
+    }
+    for (int32_t len = 2; len <= n; len <<= 1)
+    {
+        int32_t step = n / len;
+        for (int32_t i = 0; i < n; i += len)
         {
-            result[i1 + 1] += result[i1] / 10;
-            result[i1] %= 10;
+            for (int32_t j = 0; j < len / 2; j++)
+            {
+                int32_t u = a[i + j];
+                int32_t v = multiply_mod(a[i + j + len / 2], root_of_unity[step * j]);
+                // limit the value in range [0, mod)
+                if (u + v < MOD)
+                {
+                    a[i + j] = u + v;
+                }
+                else
+                {
+                    a[i + j] = u + v - MOD;
+                }
+                if (u - v >= 0)
+                {
+                    a[i + j + len / 2] = u - v;
+                }
+                else
+                {
+                    a[i + j + len / 2] = u - v + MOD;
+                }
+            }
+        }
+    }
+    if (invert)
+    {
+        coefficient_normalization(a);
+    }
+}
+BigInt BigInt::multiply_mantissa(const BigInt &other)
+{
+    int32_t original_size = this->mantissa.size() + other.mantissa.size() + 1;
+    int32_t sign = PLUS;
+    std::vector<int32_t> transformed_a1(this->mantissa.begin(), this->mantissa.end());
+    std::vector<int32_t> transformed_b1(other.mantissa.begin(), other.mantissa.end());
+    // 리스트 사이즈 변경
+    int32_t n = 1 << degree_conversion(original_size);
+    transformed_a1.resize(n);
+    transformed_b1.resize(n);
+    ntt(transformed_a1, false);
+    ntt(transformed_b1, false);
+    for (int32_t i = 0; i < n; i++)
+    {
+        transformed_a1[i] = multiply_mod(transformed_a1[i], transformed_b1[i]);
+    }
+    ntt(transformed_a1, true);
+    std::vector<int32_t> result(original_size);
+    for (int32_t i = 0; i < original_size; i++)
+    {
+        result[i] = transformed_a1[i];
+    }
+    for (int32_t i = 0; i < original_size - 1; i++)
+    {
+        if (result[i] > 9)
+        {
+            result[i + 1] += result[i] / 10;
+            result[i] %= 10;
         }
     }
     while (result.size() > 1 and result.back() == 0)
@@ -167,10 +300,6 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
     if (result.size() == 1 and result.back() == 0)
     {
         sign = ZERO;
-    }
-    else
-    {
-        sign = PLUS;
     }
     return BigInt(sign, result);
 }
@@ -190,6 +319,36 @@ BigInt::BigInt(const std::string &target)
         }
         this->mantissa.push_back(static_cast<int32_t>(*rit - '0'));
     }
+    while (this->mantissa.size() > 1 and this->mantissa.back() == 0)
+    {
+        this->mantissa.pop_back();
+    }
+    if (this->mantissa.empty())
+    {
+        this->mantissa.push_back(0);
+        this->sign = ZERO;
+    }
+    this->digit = this->mantissa.size();
+}
+BigInt::BigInt(const char *target)
+{
+    this->mantissa.clear();
+    auto p = target;
+    while (*p != '\0')
+    {
+        if (p == target and *p == '-')
+        {
+            sign = -1;
+            continue;
+        }
+        if (not('0' <= *p and *p <= '9'))
+        {
+            throw "InvalidNumeralDigitError";
+        }
+        this->mantissa.push_back(static_cast<int32_t>(*p - '0'));
+        ++p;
+    }
+    reverse(this->mantissa.begin(), this->mantissa.end());
     while (this->mantissa.size() > 1 and this->mantissa.back() == 0)
     {
         this->mantissa.pop_back();

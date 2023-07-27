@@ -14,8 +14,8 @@ private:
     std::vector<int32_t> mantissa;
 
 public:
-    BigInt(std::string target);
-    BigInt(int32_t sign, std::vector<int32_t> mantissa);
+    BigInt(const std::string &target);
+    BigInt(int32_t sign, const std::vector<int32_t> &mantissa);
     BigInt(int32_t target);
     BigInt(int64_t target);
     bool operator==(BigInt &other);
@@ -24,15 +24,17 @@ public:
     bool operator>(BigInt &other);
     bool operator<=(BigInt &other);
     bool operator<(BigInt &other);
+    BigInt abs() const;
     BigInt operator+(const BigInt &other);
-    BigInt operator-();
+    BigInt operator-() const;
     BigInt operator-(const BigInt &other);
-    // BigInt operator*(BigInt &other);
+    BigInt operator*(const BigInt &other);
     // BigInt operator/(BigInt &other);
     // BigInt operator%(BigInt &other);
-    // BigInt &operator+=(BigInt &other);
-    // BigInt &operator-=(BigInt &other);
-    // BigInt &operator*=(BigInt &other);
+    // std::tuple<BigInt> divmod(BigInt &other);
+    BigInt &operator+=(BigInt &other);
+    BigInt &operator-=(BigInt &other);
+    BigInt &operator*=(BigInt &other);
     // BigInt &operator/=(BigInt &other);
     // BigInt &operator%=(BigInt &other);
     // BigInt gcd(BigInt other);
@@ -43,13 +45,14 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const BigInt &target);
 
 protected:
-    bool is_smaller_than_other_same_sign(const BigInt &other);
-    bool is_smaller_than_other_same_sign_and_digit(const BigInt &other);
-    BigInt add_mantissa_same_sign(const BigInt &other);
-    BigInt sub_mantissa_same_sign(const BigInt &other);
+    bool is_smaller_than_other(const BigInt &other);
+    bool is_smaller_than_other_and_digit(const BigInt &other);
+    BigInt add_mantissa(const BigInt &other);
+    BigInt subtract_mantissa(const BigInt &other);
+    BigInt multiply_mantissa(const BigInt &other);
 };
 
-bool BigInt::is_smaller_than_other_same_sign(const BigInt &other)
+bool BigInt::is_smaller_than_other(const BigInt &other)
 {
     if (this->digit > other.digit)
     {
@@ -59,10 +62,10 @@ bool BigInt::is_smaller_than_other_same_sign(const BigInt &other)
     {
         return true;
     }
-    return is_smaller_than_other_same_sign_and_digit(other);
+    return is_smaller_than_other_and_digit(other);
 }
 
-bool BigInt::is_smaller_than_other_same_sign_and_digit(const BigInt &other)
+bool BigInt::is_smaller_than_other_and_digit(const BigInt &other)
 {
     auto it1 = this->mantissa.rbegin();
     auto it2 = other.mantissa.rbegin();
@@ -76,7 +79,7 @@ bool BigInt::is_smaller_than_other_same_sign_and_digit(const BigInt &other)
     return true;
 }
 
-BigInt BigInt::add_mantissa_same_sign(const BigInt &other)
+BigInt BigInt::add_mantissa(const BigInt &other)
 {
     std::vector<int32_t> result;
     int32_t carry = 0;
@@ -94,20 +97,35 @@ BigInt BigInt::add_mantissa_same_sign(const BigInt &other)
         result.push_back(carry);
     return BigInt(this->sign, result);
 }
-BigInt BigInt::sub_mantissa_same_sign(const BigInt &other)
+
+BigInt BigInt::subtract_mantissa(const BigInt &other)
 {
     bool negate = false;
-    if (is_smaller_than_other_same_sign(other))
+    if (is_smaller_than_other(other))
     {
         negate = true;
     }
     std::vector<int32_t> result;
     int32_t borrow = 0;
-    for (size_t i = 0; i < this->mantissa.size(); i++)
+    for (size_t i = 0; i < std::max(this->mantissa.size(), other.mantissa.size()); i++)
     {
-        int32_t diff = (negate ? this->mantissa[i] : other.mantissa[i]) - borrow;
-        if (i < other.mantissa.size())
-            diff -= negate ? other.mantissa[i] : this->mantissa[i];
+        int32_t diff = -borrow;
+        if (negate and i < this->mantissa.size())
+        {
+            diff -= this->mantissa[i];
+        }
+        if (negate and i < other.mantissa.size())
+        {
+            diff += other.mantissa[i];
+        }
+        if (not negate and i < this->mantissa.size())
+        {
+            diff += this->mantissa[i];
+        }
+        if (not negate and i < other.mantissa.size())
+        {
+            diff -= other.mantissa[i];
+        }
         if (diff < 0)
         {
             diff += 10;
@@ -123,15 +141,42 @@ BigInt BigInt::sub_mantissa_same_sign(const BigInt &other)
     {
         result.pop_back();
     }
-    return BigInt((negate?this->sign:-this->sign), result);
+    return BigInt((negate ? -this->sign : this->sign), result);
 }
+
+BigInt BigInt::multiply_mantissa(const BigInt &other)
+{
+    std::vector<int32_t> result(this->mantissa.size() + other.mantissa.size() + 1, 0);
+    for (int32_t i1 = 0; i1 < this->mantissa.size(); i1++)
+    {
+        for (int32_t i2 = 0; i2 < other.mantissa.size(); i2++)
+        {
+            result[i1 + i2] += this->mantissa[i1] * other.mantissa[i2];
+        }
+    }
+    for (int32_t i1 = 0; i1 < result.size(); i1++)
+    {
+        if (result[i1] >= 10)
+        {
+            result[i1 + 1] += result[i1] / 10;
+            result[i1] %= 10;
+        }
+    }
+    while (result.size() > 1 && result.back() == 0)
+    {
+        result.pop_back();
+    }
+    return BigInt(1, result);
+}
+
 // BigInt division(BigInt &other, bool finding_mod) const
 // {
 // }
-BigInt::BigInt(std::string target)
+
+BigInt::BigInt(const std::string &target)
 {
     bool trailing_zero_finish = false;
-    for (auto it = target.rbegin(); it != target.rend(); ++it)
+    for (std::reverse_iterator it = target.rbegin(); it != target.rend(); ++it)
     {
         if (not trailing_zero_finish and *it == '0')
         {
@@ -167,18 +212,20 @@ BigInt::BigInt(int32_t target)
         this->sign = MINUS;
         target = -target;
     }
+    else if (target == 0)
+    {
+        this->sign = ZERO;
+    }
     else
     {
         this->sign = PLUS;
     }
-
     this->mantissa.clear();
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
         target /= 10;
     }
-
     this->digit = mantissa.size();
 }
 
@@ -189,22 +236,24 @@ BigInt::BigInt(int64_t target)
         this->sign = MINUS;
         target = -target;
     }
+    else if (target == 0)
+    {
+        this->sign = ZERO;
+    }
     else
     {
         this->sign = PLUS;
     }
-
     this->mantissa.clear();
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
         target /= 10;
     }
-
     this->digit = mantissa.size();
 }
 
-BigInt::BigInt(int32_t sign, std::vector<int32_t> mantissa)
+BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
 {
     if (sign > 0)
     {
@@ -218,26 +267,32 @@ BigInt::BigInt(int32_t sign, std::vector<int32_t> mantissa)
     this->mantissa = mantissa;
     this->digit = mantissa.size();
 }
+
 bool BigInt::operator==(BigInt &other)
 {
     return this->mantissa == other.mantissa;
 }
+
 bool BigInt::operator!=(BigInt &other)
 {
     return not(*this == other);
 }
+
 bool BigInt::operator>=(BigInt &other)
 {
     return not(*this < other);
 }
+
 bool BigInt::operator>(BigInt &other)
 {
-    return other < *this;
+    return not(*this <= other);
 }
+
 bool BigInt::operator<=(BigInt &other)
 {
-    return not(other < *this);
+    return (*this < other) or (*this == other);
 }
+
 bool BigInt::operator<(BigInt &other)
 {
     if (*this == other)
@@ -252,16 +307,26 @@ bool BigInt::operator<(BigInt &other)
     {
         return false;
     }
-    else if (this->sign == PLUS and other.sign == PLUS and is_smaller_than_other_same_sign(other))
+    else if (this->sign == PLUS and other.sign == PLUS and is_smaller_than_other(other))
     {
         return true;
     }
-    else if (this->sign == MINUS and other.sign == MINUS and not is_smaller_than_other_same_sign(other))
+    else if (this->sign == MINUS and other.sign == MINUS and not is_smaller_than_other(other))
     {
         return true;
     }
     return true;
 }
+
+BigInt BigInt::abs() const
+{
+    if (this->sign == MINUS)
+    {
+        return -*this;
+    }
+    return *this;
+}
+
 BigInt BigInt::operator+(const BigInt &other)
 {
     if (this->sign == ZERO)
@@ -274,25 +339,28 @@ BigInt BigInt::operator+(const BigInt &other)
     }
     if (this->sign == PLUS and other.sign == PLUS)
     {
-        return add_mantissa_same_sign(other);
+        return add_mantissa(other);
     }
     if (this->sign == MINUS and other.sign == MINUS)
     {
-        return -add_mantissa_same_sign(other);
+        return -add_mantissa(other);
     }
     if (this->sign == PLUS and other.sign == MINUS)
     {
-        return sub_mantissa_same_sign(-other);
+        return subtract_mantissa(-other);
     }
     if (this->sign == MINUS and other.sign == PLUS)
     {
-        return -sub_mantissa_same_sign(-other);
+        return -subtract_mantissa(-other);
     }
 }
-BigInt BigInt::operator-()
+
+BigInt BigInt::operator-() const
 {
-    return BigInt(-1, this->mantissa);
+    BigInt result = BigInt(-1, this->mantissa);
+    return result;
 }
+
 BigInt BigInt::operator-(const BigInt &other)
 {
     if (this->sign == ZERO)
@@ -305,67 +373,99 @@ BigInt BigInt::operator-(const BigInt &other)
     }
     if (this->sign == PLUS and other.sign == PLUS)
     {
-        return sub_mantissa_same_sign(other);
+        return subtract_mantissa(other);
     }
     if (this->sign == MINUS and other.sign == MINUS)
     {
-        return -sub_mantissa_same_sign(other);
+        return -subtract_mantissa(other);
     }
     if (this->sign == PLUS and other.sign == MINUS)
     {
-        return add_mantissa_same_sign(-other);
+        return add_mantissa(-other);
     }
     if (this->sign == MINUS and other.sign == PLUS)
     {
-        return -add_mantissa_same_sign(-other);
+        return -add_mantissa(-other);
     }
 }
-// BigInt BigInt::operator*(BigInt &other)
-// {
-// }
+
+BigInt BigInt::operator*(const BigInt &other)
+{
+    if (this->sign == ZERO or other.sign == ZERO)
+    {
+        return BigInt("0");
+    }
+    if ((this->sign == PLUS and other.sign == PLUS) or (this->sign == MINUS and other.sign == MINUS))
+    {
+        return multiply_mantissa(other);
+    }
+    if ((this->sign == PLUS and other.sign == MINUS) or (this->sign == MINUS and other.sign == PLUS))
+    {
+        return -multiply_mantissa(other);
+    }
+}
+
 // BigInt BigInt::operator/(BigInt &other)
 // {
 // }
+
 // BigInt BigInt::operator%(BigInt &other)
 // {
 // }
-// BigInt &BigInt::operator+=(BigInt &other)
-// {
-// }
-// BigInt &BigInt::operator-=(BigInt &other)
-// {
-// }
-// BigInt &BigInt::operator*=(BigInt &other)
-// {
-// }
+
+BigInt &BigInt::operator+=(BigInt &other)
+{
+    *this = *this + other;
+    return *this;
+}
+
+BigInt &BigInt::operator-=(BigInt &other)
+{
+    *this = *this - other;
+    return *this;
+}
+
+BigInt &BigInt::operator*=(BigInt &other)
+{
+    *this = *this * other;
+    return *this;
+}
+
 // BigInt &BigInt::operator/=(BigInt &other)
 // {
 // }
+
 // BigInt &BigInt::operator%=(BigInt &other)
 // {
 // }
+
 int32_t BigInt::retrieve_sign() const
 {
     return this->sign;
 }
+
 int32_t BigInt::retrieve_digit() const
 {
     return this->digit;
 }
+
 std::vector<int32_t> BigInt::retrieve_mantissa() const
 {
     return this->mantissa;
 }
+
 // BigInt gcd(BigInt other)
 // {
 // }
+
 // BigInt lcm(BigInt other)
 // {
 // }
+
 std::ostream &operator<<(std::ostream &os, const BigInt &target)
 {
     int64_t sign = target.retrieve_sign();
-    std::vector<int32_t> mantissa = target.retrieve_mantissa();
+    const std::vector<int32_t> &mantissa = target.retrieve_mantissa();
     if (sign == -1)
     {
         os << '-';

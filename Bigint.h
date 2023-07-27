@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 
+using namespace std;
 class BigInt
 {
 private:
@@ -40,7 +41,7 @@ public:
 
 protected:
     bool is_smaller_than_other(const BigInt &other);
-    bool is_smaller_than_other_and_digit(const BigInt &other);
+    bool is_smaller_than_other_same_digit(const BigInt &other);
     BigInt add_mantissa(const BigInt &other);
     BigInt subtract_mantissa(const BigInt &other);
     BigInt multiply_mantissa(const BigInt &other);
@@ -56,21 +57,25 @@ bool BigInt::is_smaller_than_other(const BigInt &other)
     {
         return true;
     }
-    return is_smaller_than_other_and_digit(other);
+    return is_smaller_than_other_same_digit(other);
 }
 
-bool BigInt::is_smaller_than_other_and_digit(const BigInt &other)
+bool BigInt::is_smaller_than_other_same_digit(const BigInt &other)
 {
     auto it1 = this->mantissa.rbegin();
     auto it2 = other.mantissa.rbegin();
     for (; it1 != this->mantissa.rend() and it2 != other.mantissa.rend(); ++it1, ++it2)
     {
-        if (*it1 >= *it2)
+        if (*it1 < *it2)
+        {
+            return true;
+        }
+        else if (*it1 > *it2)
         {
             return false;
         }
     }
-    return true;
+    return false;
 }
 
 BigInt BigInt::add_mantissa(const BigInt &other)
@@ -95,6 +100,7 @@ BigInt BigInt::add_mantissa(const BigInt &other)
 BigInt BigInt::subtract_mantissa(const BigInt &other)
 {
     bool negate = false;
+    int32_t sign = ZERO;
     if (is_smaller_than_other(other))
     {
         negate = true;
@@ -131,16 +137,25 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
         }
         result.push_back(diff);
     }
-    while (result.size() > 1 && result.back() == 0)
+    while (result.size() > 1 and result.back() == 0)
     {
         result.pop_back();
     }
-    return BigInt((negate ? -1 : 1), result);
+    if (result.size() == 1 and result.back() == 0)
+    {
+        sign = ZERO;
+    }
+    else
+    {
+        sign = (negate ? MINUS : PLUS);
+    }
+    return BigInt(sign, result);
 }
 
 BigInt BigInt::multiply_mantissa(const BigInt &other)
 {
     std::vector<int32_t> result(this->mantissa.size() + other.mantissa.size() + 1, 0);
+    int32_t sign = 0;
     for (int32_t i1 = 0; i1 < this->mantissa.size(); i1++)
     {
         for (int32_t i2 = 0; i2 < other.mantissa.size(); i2++)
@@ -156,23 +171,26 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
             result[i1] %= 10;
         }
     }
-    while (result.size() > 1 && result.back() == 0)
+    while (result.size() > 1 and result.back() == 0)
     {
         result.pop_back();
     }
-    return BigInt(1, result);
+    if (result.size() == 1 and result.back() == 0)
+    {
+        sign = ZERO;
+    }
+    else
+    {
+        sign = PLUS;
+    }
+    return BigInt(sign, result);
 }
 
 BigInt::BigInt(const std::string &target)
 {
     this->mantissa.clear();
-    bool trailing_zero_finish = false;
     for (std::reverse_iterator it = target.rbegin(); it != target.rend(); ++it)
     {
-        if (not trailing_zero_finish and *it == '0')
-        {
-            continue;
-        }
         if (*it == *target.begin() and *it == '-')
         {
             sign = -1;
@@ -182,16 +200,16 @@ BigInt::BigInt(const std::string &target)
         {
             throw "InvalidNumeralDigitError";
         }
-        if (not trailing_zero_finish and ('0' <= *it and *it <= '9'))
-        {
-            trailing_zero_finish = true;
-        }
         this->mantissa.push_back(static_cast<int32_t>(*it - '0'));
+    }
+    while (this->mantissa.size() > 1 and this->mantissa.back() == 0)
+    {
+        this->mantissa.pop_back();
     }
     if (this->mantissa.empty())
     {
         this->mantissa.push_back(0);
-        this->sign = 0;
+        this->sign = ZERO;
     }
     this->digit = this->mantissa.size();
 }

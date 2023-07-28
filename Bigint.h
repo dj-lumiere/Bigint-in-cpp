@@ -712,9 +712,15 @@ BigInt isqrt(BigInt target1)
     }
     return start;
 }
-BigInt factorial(BigInt target){
+BigInt factorial(BigInt target)
+{
+    if (target.sign == -1)
+    {
+        throw std::invalid_argument("Factorial is not defined in negative integers.")
+    }
     BigInt result = 1;
-    for (BigInt i = 2; i <= target;i+=1){
+    for (BigInt i = 2; i <= target; i += 1)
+    {
         result *= i;
     }
     return result;

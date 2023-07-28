@@ -3,13 +3,6 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <complex>
-typedef long double float80;
-typedef double float64;
-typedef float float32;
-typedef std::complex<float80> complex80;
-typedef std::complex<float64> complex64;
-typedef std::complex<float32> complex32;
 const int32_t MOD = 998244353;
 const int32_t ROOT = 3;
 class BigInt

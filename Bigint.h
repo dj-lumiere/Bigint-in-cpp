@@ -305,7 +305,8 @@ std::vector<BigInt> BigInt::divmod_mantissa(const BigInt &other)
         throw std::invalid_argument("DivisionError");
     }
     BigInt absolute_dividend = abs(other);
-    BigInt quotient(0);
+    std::vector<int32_t> quotient_mantissa;
+    int32_t sign = PLUS;
     BigInt remainder(0);
     for (std::reverse_iterator rit = this->mantissa.rbegin(); rit != this->mantissa.rend(); ++rit)
     {
@@ -317,11 +318,15 @@ std::vector<BigInt> BigInt::divmod_mantissa(const BigInt &other)
             digit += 1;
         }
         remove_trailing_zero(remainder.mantissa);
-        quotient.mantissa.push_back(digit);
+        quotient_mantissa.push_back(digit);
     }
-    std::reverse(quotient.mantissa.begin(), quotient.mantissa.end());
-    remove_trailing_zero(quotient.mantissa);
-    return {quotient, remainder};
+    std::reverse(quotient_mantissa.begin(), quotient_mantissa.end());
+    remove_trailing_zero(quotient_mantissa);
+    if (quotient_mantissa.size() == 1 and quotient_mantissa.back() == 0)
+    {
+        sign = ZERO;
+    }
+    return {BigInt(sign, quotient_mantissa), remainder};
 }
 std::vector<BigInt> BigInt::divmod(const BigInt &other)
 {

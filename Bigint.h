@@ -45,6 +45,10 @@ public:
     friend std::istream &operator>>(std::istream &is, BigInt &target);
     friend std::ostream &operator<<(std::ostream &os, const BigInt &target);
     friend BigInt abs(BigInt target);
+    friend std::vector<BigInt> divmod(BigInt target1, BigInt target2);
+    friend BigInt gcd(BigInt target1, BigInt target2);
+    friend BigInt lcm(BigInt target1, BigInt target2);
+    friend BigInt isqrt(BigInt target1);
 
 protected:
     void remove_trailing_zero(std::vector<int32_t> &target);
@@ -291,7 +295,6 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
         }
     }
     remove_trailing_zero(result);
-    std::cout << result.size() << "\n";
     if (result.size() == 1 and result.back() == 0)
     {
         sign = ZERO;
@@ -661,4 +664,50 @@ std::ostream &operator<<(std::ostream &os, const BigInt &target)
         os << *it;
     }
     return os;
+}
+std::vector<BigInt> divmod(BigInt target1, BigInt target2)
+{
+    return target1.divmod(target2);
+}
+BigInt gcd(BigInt target1, BigInt target2)
+{
+    if (target1 < target2)
+    {
+        return gcd(target2, target1);
+    }
+    if (target1 % target2 == BigInt(0))
+    {
+        return target2;
+    }
+    return gcd(target2, target1 % target2);
+}
+BigInt lcm(BigInt target1, BigInt target2)
+{
+    return target1 * target2 / gcd(target1, target2);
+}
+BigInt isqrt(BigInt target1)
+{
+    if (target1.retrieve_sign() == -1)
+    {
+        throw std::invalid_argument("Cannot find root of negative integer");
+    }
+    if (target1.retrieve_sign() == 0)
+    {
+        return BigInt(0);
+    }
+    BigInt start = 0;
+    BigInt end = target1 + 1;
+    while (start + 1 < end)
+    {
+        BigInt mid = (start + end) / 2;
+        if (mid * mid > target1)
+        {
+            end = mid;
+        }
+        else
+        {
+            start = mid;
+        }
+    }
+    return start;
 }

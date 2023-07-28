@@ -4,8 +4,136 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
-const int32_t MOD = 998244353;
-const int32_t ROOT = 3;
+
+namespace ntt
+{
+    const int32_t MOD = 998244353;
+    const int32_t ROOT = 3;
+    int32_t multiply_mod(int32_t a, int32_t b)
+    {
+        return static_cast<int32_t>((static_cast<int64_t>(a) * b) % MOD);
+    }
+    int32_t power_with_mod(int32_t base, int32_t index)
+    {
+        int32_t answer = 1;
+        while (index)
+        {
+            if (index & 1)
+            {
+                answer = multiply_mod(answer, base);
+            }
+            base = multiply_mod(base, base);
+            index >>= 1;
+        }
+        return answer;
+    }
+    int32_t modular_inverse(int32_t base)
+    {
+        return power_with_mod(base, MOD - 2);
+    }
+    int32_t find_bit_ceil(int32_t a)
+    {
+        return static_cast<int32_t>(ceil(log2(a)));
+    }
+    void bit_reversal_permutation(std::vector<int32_t> &a)
+    {
+        int32_t n = a.size();
+        for (int32_t i = 1, j = 0; i < n; ++i)
+        {
+            int32_t bit = n >> 1;
+            for (; j & bit; bit >>= 1)
+            {
+                j ^= bit;
+            }
+            j ^= bit;
+            if (i < j)
+            {
+                std::swap(a[i], a[j]);
+            }
+        }
+    }
+    void coefficient_normalization(std::vector<int32_t> &a)
+    {
+        int32_t n = a.size();
+        int32_t n_inv = modular_inverse(n);
+        for (int32_t i = 0; i < n; ++i)
+        {
+            a[i] = multiply_mod(a[i], n_inv);
+        }
+    }
+    void transform(std::vector<int32_t> &a, bool invert)
+    {
+        int32_t n = a.size();
+        bit_reversal_permutation(a);
+        std::vector<int32_t> root_of_unity(n / 2, 0);
+        int32_t angle;
+        if (invert)
+        {
+            angle = MOD - 1 - (MOD - 1) / n;
+        }
+        else
+        {
+            angle = (MOD - 1) / n;
+        }
+        root_of_unity[0] = 1;
+        int32_t angleth_power = power_with_mod(ROOT, angle);
+        for (int32_t i = 1; i < n / 2; ++i)
+        {
+            root_of_unity[i] = multiply_mod(root_of_unity[i - 1], angleth_power);
+        }
+        for (int32_t len = 2; len <= n; len <<= 1)
+        {
+            int32_t step = n / len;
+            for (int32_t i = 0; i < n; i += len)
+            {
+                for (int32_t j = 0; j < len / 2; j++)
+                {
+                    int32_t u = a[i + j];
+                    int32_t v = multiply_mod(a[i + j + len / 2], root_of_unity[step * j]);
+                    if (u + v < MOD)
+                    {
+                        a[i + j] = u + v;
+                    }
+                    else
+                    {
+                        a[i + j] = u + v - MOD;
+                    }
+                    if (u - v >= 0)
+                    {
+                        a[i + j + len / 2] = u - v;
+                    }
+                    else
+                    {
+                        a[i + j + len / 2] = u - v + MOD;
+                    }
+                }
+            }
+        }
+        if (invert)
+        {
+            coefficient_normalization(a);
+        }
+    }
+    std::vector<int32_t> polynomial_multiplication(const std::vector<int32_t> &a, const std::vector<int32_t> &b)
+    {
+        int32_t original_size = a.size() + b.size();
+        std::vector<int32_t> transformed_a1(a.begin(), a.end());
+        std::vector<int32_t> transformed_b1(b.begin(), b.end());
+        int32_t n = 1 << ntt::find_bit_ceil(original_size);
+        transformed_a1.resize(n);
+        transformed_b1.resize(n);
+        ntt::transform(transformed_a1, false);
+        ntt::transform(transformed_b1, false);
+        for (int32_t i = 0; i < n; i++)
+        {
+            transformed_a1[i] = ntt::multiply_mod(transformed_a1[i], transformed_b1[i]);
+        }
+        ntt::transform(transformed_a1, true);
+        transformed_a1.resize(original_size);
+        return transformed_a1;
+    }
+}
+
 class BigInt
 {
 private:
@@ -59,13 +187,6 @@ protected:
     BigInt multiply_mantissa(const BigInt &other);
     std::vector<BigInt> divmod_mantissa(const BigInt &other);
     std::vector<BigInt> divmod(const BigInt &other);
-    int32_t multiply_mod(int32_t a, int32_t b);
-    int32_t power_with_mod(int32_t base, int32_t index);
-    int32_t modular_inverse(int32_t base);
-    int32_t find_bit_ceil(int32_t a);
-    void bit_reversal_permutation(std::vector<int32_t> &a);
-    void coefficient_normalization(std::vector<int32_t> &a);
-    void ntt(std::vector<int32_t> &a, bool invert);
 };
 void BigInt::remove_trailing_zero(std::vector<int32_t> &target)
 {
@@ -150,7 +271,7 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
         result.push_back(diff);
     }
     remove_trailing_zero(result);
-    if (result.size() == 1 and result.back() == 0)
+    if ((result.size() == 1) and (result.back() == 0))
     {
         sign = ZERO;
     }
@@ -160,132 +281,12 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
     }
     return BigInt(sign, result);
 }
-int32_t BigInt::multiply_mod(int32_t a, int32_t b)
-{
-    return static_cast<int32_t>((static_cast<int64_t>(a) * b) % MOD);
-}
-int32_t BigInt::power_with_mod(int32_t base, int32_t index)
-{
-    int32_t answer = 1;
-    while (index)
-    {
-        if (index & 1)
-        {
-            answer = multiply_mod(answer, base);
-        }
-        base = multiply_mod(base, base);
-        index >>= 1;
-    }
-    return answer;
-}
-int32_t BigInt::modular_inverse(int32_t base)
-{
-    return power_with_mod(base, MOD - 2);
-}
-int32_t BigInt::find_bit_ceil(int32_t a)
-{
-    return static_cast<int32_t>(ceil(log2(a)));
-}
-void BigInt::bit_reversal_permutation(std::vector<int32_t> &a)
-{
-    int32_t n = a.size();
-    for (int32_t i = 1, j = 0; i < n; ++i)
-    {
-        int32_t bit = n >> 1;
-        for (; j & bit; bit >>= 1)
-        {
-            j ^= bit;
-        }
-        j ^= bit;
-        if (i < j)
-        {
-            std::swap(a[i], a[j]);
-        }
-    }
-}
-void BigInt::coefficient_normalization(std::vector<int32_t> &a)
-{
-    int32_t n = a.size();
-    int32_t n_inv = modular_inverse(n);
-    for (int32_t i = 0; i < n; ++i)
-    {
-        a[i] = multiply_mod(a[i], n_inv);
-    }
-}
-void BigInt::ntt(std::vector<int32_t> &a, bool invert)
-{
-    int32_t n = a.size();
-    bit_reversal_permutation(a);
-    std::vector<int32_t> root_of_unity(n / 2, 0);
-    int32_t angle;
-    if (invert)
-    {
-        angle = MOD - 1 - (MOD - 1) / n;
-    }
-    else
-    {
-        angle = (MOD - 1) / n;
-    }
-    root_of_unity[0] = 1;
-    int32_t angleth_power = power_with_mod(ROOT, angle);
-    for (int32_t i = 1; i < n / 2; ++i)
-    {
-        root_of_unity[i] = multiply_mod(root_of_unity[i - 1], angleth_power);
-    }
-    for (int32_t len = 2; len <= n; len <<= 1)
-    {
-        int32_t step = n / len;
-        for (int32_t i = 0; i < n; i += len)
-        {
-            for (int32_t j = 0; j < len / 2; j++)
-            {
-                int32_t u = a[i + j];
-                int32_t v = multiply_mod(a[i + j + len / 2], root_of_unity[step * j]);
-                if (u + v < MOD)
-                {
-                    a[i + j] = u + v;
-                }
-                else
-                {
-                    a[i + j] = u + v - MOD;
-                }
-                if (u - v >= 0)
-                {
-                    a[i + j + len / 2] = u - v;
-                }
-                else
-                {
-                    a[i + j + len / 2] = u - v + MOD;
-                }
-            }
-        }
-    }
-    if (invert)
-    {
-        coefficient_normalization(a);
-    }
-}
+
 BigInt BigInt::multiply_mantissa(const BigInt &other)
 {
-    int32_t original_size = this->mantissa.size() + other.mantissa.size() + 1;
     int32_t sign = PLUS;
-    std::vector<int32_t> transformed_a1(this->mantissa.begin(), this->mantissa.end());
-    std::vector<int32_t> transformed_b1(other.mantissa.begin(), other.mantissa.end());
-    int32_t n = 1 << find_bit_ceil(original_size);
-    transformed_a1.resize(n);
-    transformed_b1.resize(n);
-    ntt(transformed_a1, false);
-    ntt(transformed_b1, false);
-    for (int32_t i = 0; i < n; i++)
-    {
-        transformed_a1[i] = multiply_mod(transformed_a1[i], transformed_b1[i]);
-    }
-    ntt(transformed_a1, true);
-    std::vector<int32_t> result(original_size);
-    for (int32_t i = 0; i < original_size; i++)
-    {
-        result[i] = transformed_a1[i];
-    }
+    int32_t original_size = this->mantissa.size() + other.mantissa.size() + 1;
+    std::vector<int32_t> result = ntt::polynomial_multiplication(this->mantissa, other.mantissa);
     for (int32_t i = 0; i < original_size - 1; i++)
     {
         if (result[i] > 9)
@@ -295,7 +296,7 @@ BigInt BigInt::multiply_mantissa(const BigInt &other)
         }
     }
     remove_trailing_zero(result);
-    if (result.size() == 1 and result.back() == 0)
+    if ((result.size() == 1) and (result.back() == 0))
     {
         sign = ZERO;
     }
@@ -325,7 +326,7 @@ std::vector<BigInt> BigInt::divmod_mantissa(const BigInt &other)
     }
     std::reverse(quotient_mantissa.begin(), quotient_mantissa.end());
     remove_trailing_zero(quotient_mantissa);
-    if (quotient_mantissa.size() == 1 and quotient_mantissa.back() == 0)
+    if ((quotient_mantissa.size() == 1) and (quotient_mantissa.back() == 0))
     {
         sign = ZERO;
     }
@@ -336,15 +337,15 @@ std::vector<BigInt> BigInt::divmod(const BigInt &other)
     std::vector<BigInt> division_result = divmod_mantissa(other);
     if ((this->sign == MINUS) and other.sign == PLUS)
     {
-        division_result[0] = (division_result[1].sign == ZERO ? -division_result[0] : -division_result[0] - 1);
+        division_result[0] = -(division_result[1].sign == ZERO ? division_result[0] : division_result[0] + 1);
         division_result[1] = (division_result[1].sign == ZERO ? division_result[1] : -(division_result[1] - other));
     }
-    if ((this->sign >= ZERO) and other.sign == MINUS)
+    else if ((this->sign >= ZERO) and other.sign == MINUS)
     {
-        division_result[0] = (division_result[1].sign == ZERO ? -division_result[0] : -division_result[0] - 1);
+        division_result[0] = -(division_result[1].sign == ZERO ? division_result[0] : division_result[0] + 1);
         division_result[1] = (division_result[1].sign == ZERO ? division_result[1] : division_result[1] + other);
     }
-    if ((this->sign == MINUS) and other.sign == MINUS)
+    else if ((this->sign == MINUS) and other.sign == MINUS)
     {
         division_result[1] = -division_result[1];
     }
@@ -362,12 +363,12 @@ BigInt::BigInt(const std::string &target)
         }
         if (not('0' <= *rit and *rit <= '9'))
         {
-            throw std::invalid_argument("InvalidNumeralDigitError");
+            throw std::invalid_argument("Invalid character : only numeral characters or minus sign in first letter are allowed.");
         }
         this->mantissa.push_back(static_cast<int32_t>(*rit - '0'));
     }
     remove_trailing_zero(this->mantissa);
-    if (this->mantissa.size() == 1 and this->mantissa.back() == 0)
+    if ((this->mantissa.size() == 1) and (this->mantissa.back() == 0))
     {
         this->sign = ZERO;
     }
@@ -387,14 +388,14 @@ BigInt::BigInt(const char *target)
         }
         if (not('0' <= *p and *p <= '9'))
         {
-            throw std::invalid_argument("InvalidNumeralDigitError");
+            throw std::invalid_argument("Invalid character : only numeral characters or minus sign in first letter are allowed.");
         }
         this->mantissa.push_back(static_cast<int32_t>(*p - '0'));
         ++p;
     }
     reverse(this->mantissa.begin(), this->mantissa.end());
     remove_trailing_zero(this->mantissa);
-    if (this->mantissa.size() == 1 and this->mantissa.back() == 0)
+    if ((this->mantissa.size() == 1) and (this->mantissa.back() == 0))
     {
         this->sign = ZERO;
     }
@@ -466,6 +467,9 @@ BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
         sign = -1;
     }
     this->sign = sign;
+    if (std::any_of(mantissa.begin(), mantissa.end(), [](int32_t i){return i<0 or 9<i;})){
+        throw std::invalid_argument("Invalid digit : only numbers in 0 ~ 9 inclusive are allowed.");
+    }
     this->mantissa = mantissa;
     remove_trailing_zero(this->mantissa);
     this->digit = mantissa.size();

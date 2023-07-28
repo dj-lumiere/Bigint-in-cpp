@@ -739,7 +739,7 @@ BigInt icbrt(BigInt target1)
             start = mid;
         }
     }
-    return start;
+    return (invert ? -start : start);
 }
 BigInt factorial(BigInt target)
 {

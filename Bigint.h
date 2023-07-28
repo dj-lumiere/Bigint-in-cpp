@@ -148,8 +148,8 @@ public:
     BigInt(const std::string &target);
     BigInt(const char *target);
     BigInt(int32_t sign, const std::vector<int32_t> &mantissa);
-    BigInt(int32_t target);
     BigInt(int64_t target);
+    BigInt(int32_t target);
     bool operator==(const BigInt &other);
     bool operator!=(const BigInt &other);
     bool operator>=(const BigInt &other);
@@ -177,6 +177,9 @@ public:
     friend BigInt gcd(BigInt target1, BigInt target2);
     friend BigInt lcm(BigInt target1, BigInt target2);
     friend BigInt isqrt(BigInt target1);
+    friend BigInt factorial(BigInt target);
+    friend BigInt pow(BigInt base, BigInt index);
+    friend BigInt pow(BigInt base, BigInt index, BigInt mod);
 
 protected:
     void remove_trailing_zero(std::vector<int32_t> &target);
@@ -401,57 +404,49 @@ BigInt::BigInt(const char *target)
     }
     this->digit = this->mantissa.size();
 }
-BigInt::BigInt(int32_t target)
-{
-    this->mantissa.clear();
-    if (target < 0)
-    {
-        this->sign = MINUS;
-        target = -target;
-    }
-    else if (target == 0)
-    {
-        this->sign = ZERO;
-    }
-    else
-    {
-        this->sign = PLUS;
-    }
-    while (target != 0)
-    {
-        this->mantissa.push_back(target % 10);
-        target /= 10;
-    }
-    if (this->mantissa.empty())
-    {
-        this->mantissa.push_back(0);
-    }
-    this->digit = mantissa.size();
-}
 BigInt::BigInt(int64_t target)
 {
     this->mantissa.clear();
+    if (target == 0)
+    {
+        this->sign = ZERO;
+        this->mantissa = {0};
+        this->sign = {1};
+        return;
+    }
     if (target < 0)
     {
         this->sign = MINUS;
         target = -target;
     }
-    else if (target == 0)
-    {
-        this->sign = ZERO;
-    }
-    else
-    {
-        this->sign = PLUS;
-    }
+    this->sign = PLUS;
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
         target /= 10;
     }
-    if (this->mantissa.empty())
+    this->digit = mantissa.size();
+}
+BigInt::BigInt(int32_t target)
+{
+    this->mantissa.clear();
+    if (target == 0)
     {
-        this->mantissa.push_back(0);
+        this->sign = ZERO;
+        this->mantissa = {0};
+        this->sign = {1};
+        return;
+    }
+    if (target < 0)
+    {
+        this->sign = MINUS;
+        target = -target;
+    }
+    this->sign = PLUS;
+    while (target != 0)
+    {
+        this->mantissa.push_back(target % 10);
+        target /= 10;
     }
     this->digit = mantissa.size();
 }
@@ -467,7 +462,9 @@ BigInt::BigInt(int32_t sign, const std::vector<int32_t> &mantissa)
         sign = -1;
     }
     this->sign = sign;
-    if (std::any_of(mantissa.begin(), mantissa.end(), [](int32_t i){return i<0 or 9<i;})){
+    if (std::any_of(mantissa.begin(), mantissa.end(), [](int32_t i)
+                    { return i < 0 or 9 < i; }))
+    {
         throw std::invalid_argument("Invalid digit : only numbers in 0 ~ 9 inclusive are allowed.");
     }
     this->mantissa = mantissa;
@@ -714,4 +711,37 @@ BigInt isqrt(BigInt target1)
         }
     }
     return start;
+}
+BigInt factorial(BigInt target){
+    BigInt result = 1;
+    for (BigInt i = 2; i <= target;i+=1){
+        result *= i;
+    }
+    return result;
+}
+BigInt pow(BigInt base, BigInt index)
+{
+    BigInt result = 1;
+    for (; index > 0; index /= 2)
+    {
+        if (index % 2 == 1)
+        {
+            result *= base;
+        }
+        base *= base;
+    }
+    return result;
+}
+BigInt pow(BigInt base, BigInt index, BigInt mod)
+{
+    BigInt result = 1;
+    for (; index > 0; index /= 2)
+    {
+        if (index % 2 == 1)
+        {
+            result = result * base % mod;
+        }
+        base = base * base % mod;
+    }
+    return result;
 }

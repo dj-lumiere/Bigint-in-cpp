@@ -177,6 +177,7 @@ public:
     friend BigInt gcd(BigInt target1, BigInt target2);
     friend BigInt lcm(BigInt target1, BigInt target2);
     friend BigInt isqrt(BigInt target1);
+    friend BigInt icbrt(BigInt target1);
     friend BigInt factorial(BigInt target);
     friend BigInt pow(BigInt base, BigInt index);
     friend BigInt pow(BigInt base, BigInt index, BigInt mod);
@@ -712,11 +713,39 @@ BigInt isqrt(BigInt target1)
     }
     return start;
 }
+BigInt icbrt(BigInt target1)
+{
+    bool invert = false;
+    if (target1.retrieve_sign() == -1)
+    {
+        invert = true;
+        target1 = -target1;
+    }
+    if (target1.retrieve_sign() == 0)
+    {
+        return BigInt(0);
+    }
+    BigInt start = 0;
+    BigInt end = target1 + 1;
+    while (start + 1 < end)
+    {
+        BigInt mid = (start + end) / 2;
+        if (pow(mid, 3) > target1)
+        {
+            end = mid;
+        }
+        else
+        {
+            start = mid;
+        }
+    }
+    return start;
+}
 BigInt factorial(BigInt target)
 {
     if (target.sign == -1)
     {
-        throw std::invalid_argument("Factorial is not defined in negative integers.")
+        throw std::invalid_argument("Factorial is not defined in negative integers.");
     }
     BigInt result = 1;
     for (BigInt i = 2; i <= target; i += 1)

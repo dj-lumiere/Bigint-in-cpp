@@ -133,7 +133,6 @@ namespace ntt
         return transformed_a1;
     }
 }
-
 class BigInt
 {
 private:
@@ -167,9 +166,9 @@ public:
     BigInt &operator*=(const BigInt &other);
     BigInt &operator/=(const BigInt &other);
     BigInt &operator%=(const BigInt &other);
-    int32_t retrieve_sign() const;
-    int32_t retrieve_digit() const;
-    std::vector<int32_t> retrieve_mantissa() const;
+    int32_t get_sign() const;
+    int32_t get_digit() const;
+    std::vector<int32_t> get_mantissa() const;
     friend std::istream &operator>>(std::istream &is, BigInt &target);
     friend std::ostream &operator<<(std::ostream &os, const BigInt &target);
     friend BigInt abs(BigInt target);
@@ -177,10 +176,10 @@ public:
     friend BigInt gcd(BigInt target1, BigInt target2);
     friend BigInt lcm(BigInt target1, BigInt target2);
     friend BigInt isqrt(BigInt target1);
-    friend BigInt icbrt(BigInt target1);
     friend BigInt factorial(BigInt target);
     friend BigInt pow(BigInt base, BigInt index);
     friend BigInt pow(BigInt base, BigInt index, BigInt mod);
+    friend BigInt multiplicative_inverse(const BigInt &target, const BigInt &mod);
 
 protected:
     void remove_trailing_zero(std::vector<int32_t> &target);
@@ -191,6 +190,7 @@ protected:
     BigInt multiply_mantissa(const BigInt &other);
     std::vector<BigInt> divmod_mantissa(const BigInt &other);
     std::vector<BigInt> divmod(const BigInt &other);
+    friend std::vector<BigInt> extended_euclidean(BigInt a, BigInt b, BigInt d);
 };
 void BigInt::remove_trailing_zero(std::vector<int32_t> &target)
 {
@@ -220,6 +220,7 @@ BigInt BigInt::add_mantissa(const BigInt &other)
 {
     std::vector<int32_t> result;
     int32_t carry = 0;
+    int32_t sign = PLUS;
     for (size_t i = 0; i < std::max(this->mantissa.size(), other.mantissa.size()); i++)
     {
         int32_t sum = carry;
@@ -232,7 +233,16 @@ BigInt BigInt::add_mantissa(const BigInt &other)
     }
     if (carry)
         result.push_back(carry);
-    return BigInt(this->sign, result);
+    remove_trailing_zero(result);
+    if ((result.size() == 1) and (result.back() == 0))
+    {
+        sign = ZERO;
+    }
+    else
+    {
+        sign = PLUS;
+    }
+    return BigInt(sign, result);
 }
 BigInt BigInt::subtract_mantissa(const BigInt &other)
 {
@@ -285,7 +295,6 @@ BigInt BigInt::subtract_mantissa(const BigInt &other)
     }
     return BigInt(sign, result);
 }
-
 BigInt BigInt::multiply_mantissa(const BigInt &other)
 {
     int32_t sign = PLUS;
@@ -355,6 +364,28 @@ std::vector<BigInt> BigInt::divmod(const BigInt &other)
     }
     return division_result;
 }
+std::vector<BigInt> extended_euclidean(BigInt a, BigInt b, BigInt d)
+{
+    std::vector<std::vector<BigInt>> xy_sequence = {{1, 0}, {0, 1}};
+    std::vector<BigInt> remainder_sequence = {a, b};
+    BigInt quotient = 0;
+    bool is_odd = false;
+    while (true)
+    {
+        quotient = remainder_sequence[is_odd] / remainder_sequence[!is_odd];
+        remainder_sequence[is_odd] = remainder_sequence[is_odd] - quotient * remainder_sequence[!is_odd];
+        for (int64_t j = 0; j < 2; ++j)
+        {
+            xy_sequence[is_odd][j] = xy_sequence[is_odd][j] - xy_sequence[!is_odd][j] * quotient;
+        }
+        if (remainder_sequence[is_odd] == d)
+        {
+            break;
+        }
+        is_odd ^= 1;
+    }
+    return xy_sequence[is_odd];
+}
 BigInt::BigInt(const std::string &target)
 {
     this->mantissa.clear();
@@ -408,11 +439,12 @@ BigInt::BigInt(const char *target)
 BigInt::BigInt(int64_t target)
 {
     this->mantissa.clear();
+    this->sign = PLUS;
     if (target == 0)
     {
         this->sign = ZERO;
         this->mantissa = {0};
-        this->sign = {1};
+        this->digit = 1;
         return;
     }
     if (target < 0)
@@ -420,7 +452,6 @@ BigInt::BigInt(int64_t target)
         this->sign = MINUS;
         target = -target;
     }
-    this->sign = PLUS;
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
@@ -431,11 +462,12 @@ BigInt::BigInt(int64_t target)
 BigInt::BigInt(int32_t target)
 {
     this->mantissa.clear();
+    this->sign = PLUS;
     if (target == 0)
     {
         this->sign = ZERO;
         this->mantissa = {0};
-        this->sign = {1};
+        this->digit = 1;
         return;
     }
     if (target < 0)
@@ -443,7 +475,6 @@ BigInt::BigInt(int32_t target)
         this->sign = MINUS;
         target = -target;
     }
-    this->sign = PLUS;
     while (target != 0)
     {
         this->mantissa.push_back(target % 10);
@@ -518,7 +549,7 @@ bool BigInt::operator<(const BigInt &other)
 }
 BigInt abs(BigInt target)
 {
-    int32_t target_sign = target.retrieve_sign();
+    int32_t target_sign = target.get_sign();
     if (target_sign == -1)
     {
         return -target;
@@ -632,17 +663,25 @@ BigInt &BigInt::operator%=(const BigInt &other)
     *this = *this % other;
     return *this;
 }
-int32_t BigInt::retrieve_sign() const
+int32_t BigInt::get_sign() const
 {
     return this->sign;
 }
-int32_t BigInt::retrieve_digit() const
+int32_t BigInt::get_digit() const
 {
     return this->digit;
 }
-std::vector<int32_t> BigInt::retrieve_mantissa() const
+std::vector<int32_t> BigInt::get_mantissa() const
 {
     return this->mantissa;
+}
+BigInt multiplicative_inverse(const BigInt &target, const BigInt &mod)
+{
+    if (gcd(target, mod) != BigInt(1))
+    {
+        throw std::invalid_argument("Multiplicative inverse does not exist.");
+    }
+    return extended_euclidean(target, mod, BigInt(1))[0] % mod;
 }
 std::istream &operator>>(std::istream &is, BigInt &target)
 {
@@ -655,8 +694,8 @@ std::istream &operator>>(std::istream &is, BigInt &target)
 }
 std::ostream &operator<<(std::ostream &os, const BigInt &target)
 {
-    int64_t sign = target.retrieve_sign();
-    const std::vector<int32_t> &mantissa = target.retrieve_mantissa();
+    int64_t sign = target.get_sign();
+    const std::vector<int32_t> &mantissa = target.get_mantissa();
     if (sign == -1)
     {
         os << '-';
@@ -673,6 +712,10 @@ std::vector<BigInt> divmod(BigInt target1, BigInt target2)
 }
 BigInt gcd(BigInt target1, BigInt target2)
 {
+    if (target1 == BigInt(1) or target2 == BigInt(1))
+    {
+        return BigInt(1);
+    }
     if (target1 < target2)
     {
         return gcd(target2, target1);
@@ -689,11 +732,11 @@ BigInt lcm(BigInt target1, BigInt target2)
 }
 BigInt isqrt(BigInt target1)
 {
-    if (target1.retrieve_sign() == -1)
+    if (target1.get_sign() == -1)
     {
         throw std::invalid_argument("Cannot find root of negative integer");
     }
-    if (target1.retrieve_sign() == 0)
+    if (target1.get_sign() == 0)
     {
         return BigInt(0);
     }
@@ -713,40 +756,8 @@ BigInt isqrt(BigInt target1)
     }
     return start;
 }
-BigInt icbrt(BigInt target1)
-{
-    bool invert = false;
-    if (target1.retrieve_sign() == -1)
-    {
-        invert = true;
-        target1 = -target1;
-    }
-    if (target1.retrieve_sign() == 0)
-    {
-        return BigInt(0);
-    }
-    BigInt start = 0;
-    BigInt end = target1 + 1;
-    while (start + 1 < end)
-    {
-        BigInt mid = (start + end) / 2;
-        if (pow(mid, 3) > target1)
-        {
-            end = mid;
-        }
-        else
-        {
-            start = mid;
-        }
-    }
-    return (invert ? -start : start);
-}
 BigInt factorial(BigInt target)
 {
-    if (target.sign == -1)
-    {
-        throw std::invalid_argument("Factorial is not defined in negative integers.");
-    }
     BigInt result = 1;
     for (BigInt i = 2; i <= target; i += 1)
     {
@@ -756,6 +767,10 @@ BigInt factorial(BigInt target)
 }
 BigInt pow(BigInt base, BigInt index)
 {
+    if (index.sign == -1)
+    {
+        throw std::invalid_argument("Index cannot be negative.");
+    }
     BigInt result = 1;
     for (; index > 0; index /= 2)
     {
@@ -769,6 +784,11 @@ BigInt pow(BigInt base, BigInt index)
 }
 BigInt pow(BigInt base, BigInt index, BigInt mod)
 {
+    if (index.sign < 0)
+    {
+        base = multiplicative_inverse(base, mod);
+        index = -index;
+    }
     BigInt result = 1;
     for (; index > 0; index /= 2)
     {

@@ -756,6 +756,34 @@ BigInt isqrt(BigInt target1)
     }
     return start;
 }
+BigInt icbrt(BigInt target1)
+{
+    bool invert = false;
+    if (target1.retrieve_sign() == -1)
+    {
+        invert = true;
+        target1 = -target1;
+    }
+    if (target1.retrieve_sign() == 0)
+    {
+        return BigInt(0);
+    }
+    BigInt start = 0;
+    BigInt end = target1 + 1;
+    while (start + 1 < end)
+    {
+        BigInt mid = (start + end) / 2;
+        if (pow(mid, 3) > target1)
+        {
+            end = mid;
+        }
+        else
+        {
+            start = mid;
+        }
+    }
+    return (invert ? -start : start);
+}
 BigInt factorial(BigInt target)
 {
     BigInt result = 1;

@@ -175,7 +175,8 @@ public:
     friend std::vector<BigInt> divmod(BigInt target1, BigInt target2);
     friend BigInt gcd(BigInt target1, BigInt target2);
     friend BigInt lcm(BigInt target1, BigInt target2);
-    friend BigInt isqrt(BigInt target1);
+    friend BigInt isqrt(BigInt target);
+    friend BigInt icbrt(BigInt target);
     friend BigInt factorial(BigInt target);
     friend BigInt pow(BigInt base, BigInt index);
     friend BigInt pow(BigInt base, BigInt index, BigInt mod);
@@ -730,22 +731,22 @@ BigInt lcm(BigInt target1, BigInt target2)
 {
     return target1 * target2 / gcd(target1, target2);
 }
-BigInt isqrt(BigInt target1)
+BigInt isqrt(BigInt target)
 {
-    if (target1.get_sign() == -1)
+    if (target.get_sign() == -1)
     {
         throw std::invalid_argument("Cannot find root of negative integer");
     }
-    if (target1.get_sign() == 0)
+    if (target.get_sign() == 0)
     {
         return BigInt(0);
     }
     BigInt start = 0;
-    BigInt end = target1 + 1;
+    BigInt end = target + 1;
     while (start + 1 < end)
     {
         BigInt mid = (start + end) / 2;
-        if (mid * mid > target1)
+        if (mid * mid > target)
         {
             end = mid;
         }
@@ -756,15 +757,15 @@ BigInt isqrt(BigInt target1)
     }
     return start;
 }
-BigInt icbrt(BigInt target1)
+BigInt icbrt(BigInt target)
 {
     bool invert = false;
     if (target1.retrieve_sign() == -1)
     {
         invert = true;
-        target1 = -target1;
+        target = -target;
     }
-    if (target1.retrieve_sign() == 0)
+    if (target.retrieve_sign() == 0)
     {
         return BigInt(0);
     }
@@ -773,7 +774,7 @@ BigInt icbrt(BigInt target1)
     while (start + 1 < end)
     {
         BigInt mid = (start + end) / 2;
-        if (pow(mid, 3) > target1)
+        if (pow(mid, 3) > target)
         {
             end = mid;
         }
